@@ -10,7 +10,7 @@ class FeedForwardNN():
     
     def __init__(self, hidden_layer_sizes=(5,), 
                  batch_size=1, learning_rate=0.1, 
-                 max_iter=100, momentum=0):
+                 max_iter=100, momentum=0, tol=0.0001):
         """
         Parameter: 
             hidden_layer_sizes - Jumlah neuron pada hidden setiap hidden layer.
@@ -32,6 +32,7 @@ class FeedForwardNN():
         self.learning_rate = learning_rate
         self.max_iter = max_iter
         self.momentum = momentum
+        self.tol = tol
         self.weights = []
         self.delta_weights = []
         self.epoch = 0
@@ -52,6 +53,7 @@ class FeedForwardNN():
             shape = (self.neurons_at_layers[i+1], self.neurons_at_layers[i])
             self.weights.append(np.random.random(shape) - 0.5)
             self.delta_weights.append(np.zeros(shape))
+        self.prev_error = 0
         self.convergent = False
             
     def score(self, X, y):
@@ -105,7 +107,12 @@ class FeedForwardNN():
             while iterator < X.shape[0]:
                 batch_X = X[iterator:iterator + self.batch_size]
                 batch_y = y[iterator:iterator + self.batch_size]
-                self.__feed_batch(batch_X, batch_y)
+                error = self.__feed_batch(batch_X, batch_y)
+                delta_error = abs(self.prev_error - error)
+                if delta_error <= self.tol:
+                    self.convergent = True
+                else:
+                    self.prev_error = error
                 iterator += self.batch_size
             self.epoch += 1
             
@@ -113,7 +120,7 @@ class FeedForwardNN():
     def __feed_batch(self, batch_X, batch_y):
         """
         Metode untuk memasukkan mini batch ke dalam network, melakukan propagasi 
-        pada error, dan melakukan update weight.
+        pada error, dan melakukan update weight. Mengembalikan batch error.
 
         Parameter:
             batch_x - Data dalam mini batch.
@@ -126,6 +133,7 @@ class FeedForwardNN():
             error += self.o_err(output, y)
         self.__backpropagate(error)
         self.__update_weights()
+        return error
             
             
     def __feed_forward(self, x):
@@ -136,7 +144,6 @@ class FeedForwardNN():
         Parameter:
             x - Data yang akan dimasukkan ke dalam network.
         """
-        assert (len(self.weights) > 0), "Network is not initialized."
         inputs = np.append(x, 1) # Add bias
         self.outputs = [inputs]
         for layer in self.weights:
